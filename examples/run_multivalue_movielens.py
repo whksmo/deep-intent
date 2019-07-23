@@ -1,11 +1,17 @@
 import numpy as np
 import pandas as pd
+import sys
+from os import path
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 
-from ..deepctr.models import DeepFM
-from ..deepctr.inputs import SparseFeat, VarLenSparseFeat,get_fixlen_feature_names,get_varlen_feature_names
-
+from deepctr.models import DeepFM
+from deepctr.inputs import SparseFeat, VarLenSparseFeat,get_fixlen_feature_names,get_varlen_feature_names
+import tensorflow as tf
 
 def split(x):
     key_ans = x.split('|')
@@ -55,6 +61,6 @@ model_input = fixlen_input + varlen_input # make sure the order is right
 # 4.Define Model,compile and train
 model = DeepFM(linear_feature_columns,dnn_feature_columns,task='regression')
 
-model.compile("adam", "mse", metrics=['mse'], )
+model.compile("adam", 'mse', metrics=['accuracy'], )
 history = model.fit(model_input, data[target].values,
-                    batch_size=256, epochs=10, verbose=2, validation_split=0.2, )
+                    batch_size=256, epochs=100, verbose=1, validation_split=0.2, )

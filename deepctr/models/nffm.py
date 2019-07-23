@@ -74,12 +74,9 @@ def NFFM(linear_feature_columns, dnn_feature_columns, embedding_size=4, dnn_hidd
                                               sparse_feature_columns + varlen_sparse_feature_columns} for fc_j in
                         sparse_feature_columns + varlen_sparse_feature_columns}
 
-<<<<<<< HEAD
     # 输出是一堆embedding layers
     sparse_embedding, dense_embedding, linear_embedding = create_embedding_dict(feature_dim_dict, embedding_size, init_std, seed, l2_reg_embedding, l2_reg_linear, )
-=======
     dense_value_list = get_dense_input(features, dnn_feature_columns)
->>>>>>> 8182ea386e6529a1a2294d8e2d33fc040d0cbfb2
 
     embed_list = []
     for fc_i, fc_j in itertools.combinations(sparse_feature_columns + varlen_sparse_feature_columns, 2):
@@ -98,7 +95,7 @@ def NFFM(linear_feature_columns, dnn_feature_columns, embedding_size=4, dnn_hidd
             element_wise_prod = Lambda(lambda element_wise_prod: K.sum(
                 element_wise_prod, axis=-1))(element_wise_prod)
         embed_list.append(element_wise_prod)
-<<<<<<< HEAD
+
     for i, j in itertools.combinations(feature_dim_dict['dense'], 2):
         element_wise_prod = multiply([dense_embedding[i.name][j.name](dense_input_dict[i.name]), dense_embedding[j.name][i.name](dense_input_dict[j.name])])
         if reduce_sum:
@@ -119,13 +116,10 @@ def NFFM(linear_feature_columns, dnn_feature_columns, embedding_size=4, dnn_hidd
                 element_wise_prod = Lambda(lambda element_wise_prod: K.sum(element_wise_prod, axis=-1))(
                     element_wise_prod)
             embed_list.append(element_wise_prod)
-=======
->>>>>>> 8182ea386e6529a1a2294d8e2d33fc040d0cbfb2
 
     ffm_out = tf.keras.layers.Flatten()(concat_fun(embed_list, axis=1))
     if use_bn:
         ffm_out = tf.keras.layers.BatchNormalization()(ffm_out)
-<<<<<<< HEAD
     ffm_out = DNN(dnn_hidden_units, l2_reg=l2_reg_dnn, dropout_rate=dnn_dropout)(ffm_out)
     final_logit = Dense(1, use_bias=False)(ffm_out)
 
@@ -136,7 +130,6 @@ def NFFM(linear_feature_columns, dnn_feature_columns, embedding_size=4, dnn_hidd
 
     if include_linear:
         final_logit = add([final_logit, linear_logit])
-=======
     dnn_input = combined_dnn_input([ffm_out], dense_value_list)
     dnn_out = DNN(dnn_hidden_units, l2_reg=l2_reg_dnn, dropout_rate=dnn_dropout)(dnn_input)
     dnn_logit = Dense(1, use_bias=False)(dnn_out)
@@ -149,7 +142,6 @@ def NFFM(linear_feature_columns, dnn_feature_columns, embedding_size=4, dnn_hidd
         final_logit = dnn_logit
     else:
         raise NotImplementedError
->>>>>>> 8182ea386e6529a1a2294d8e2d33fc040d0cbfb2
 
     output = PredictionLayer(task)(final_logit)
 
@@ -157,7 +149,6 @@ def NFFM(linear_feature_columns, dnn_feature_columns, embedding_size=4, dnn_hidd
     return model
 
 
-<<<<<<< HEAD
 def create_embedding_dict(feature_dim_dict, embedding_size, init_std, seed, l2_rev_V, l2_reg_w, ):
     # j一共有n个，表示有n个sparse feature
     # i有n+m个，m是dense features num，所以每个sparse feature对应了n+m个embedding layers, 而不是一般的一个
@@ -185,11 +176,10 @@ def create_embedding_dict(feature_dim_dict, embedding_size, init_std, seed, l2_r
                         i, feat in enumerate(feature_dim_dict["sparse"])}
 
     return sparse_embedding, dense_embedding, linear_embedding
-=======
+
 def feature_embedding(fc_i, fc_j, embedding_dict, input_feature):
     fc_i_embedding = embedding_dict[fc_i.name][fc_j.name](input_feature)
     if isinstance(fc_i, SparseFeat):
         return NoMask()(fc_i_embedding)
     else:
         return SequencePoolingLayer(fc_i.combiner, supports_masking=True)(fc_i_embedding)
->>>>>>> 8182ea386e6529a1a2294d8e2d33fc040d0cbfb2
