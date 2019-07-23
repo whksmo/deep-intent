@@ -25,10 +25,9 @@ def process_varfeature(data, f, max_len):
     key2index = {}
 
     def split(x):
-	key_ans = x.split(',')
-	for key in key_ans:
-	    if key not in key2index:
-		# Notice : input value 0 is a special "padding",so we do not use 0 to encode valid feature for sequence input
+        key_ans = x.split(',')
+    for key in key_ans:
+        if key not in key2index:
 		key2index[key] = len(key2index) + 1
 	return list(map(lambda x: key2index[x], key_ans))
 
@@ -55,16 +54,14 @@ if __name__ == "__main__":
     action_list, action_columns = process_varfeature(data, 'action', 100)
     service_list, service_columns = process_varfeature(data, 'service', 20)
 
-    linear_feature_columns = factor_columns + action_columns + service_columns
-    dnn_feature_columns = factor_columns + action_columns + service_columns
-    varlen_feature_names = get_varlen_feature_names(linear_feature_columns + dnn_feature_columns)
+    # linear_feature_columns = factor_columns + action_columns + service_columns
+    # dnn_feature_columns = factor_columns + action_columns + service_columns
 
     train_model_input = [factor_list] + [action_list] + [service_list]
-    model = dm.DCN(dnn_feature_columns, task=6723)
+    model = dm.DCN(task=6723)
     model.compile("adam", "sparse_categorical_crossentropy", metrics=['accuracy'])
 
-    history = model.fit(train_model_input, data[target].values,
-                        batch_size=256, epochs=10, verbose=2, validation_split=0.03)
+    history = model.fit(train_model_input, data[target].values, batch_size=256, epochs=10, verbose=2, validation_split=0.03)
 
     factor_list, factor_columns = process_varfeature(test_data, 'factor', 500)
     action_list, action_columns = process_varfeature(test_data, 'action', 100)
