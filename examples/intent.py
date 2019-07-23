@@ -26,8 +26,8 @@ def process_varfeature(data, f, max_len):
 
     def split(x):
         key_ans = x.split(',')
-    for key in key_ans:
-        if key not in key2index:
+	for key in key_ans:
+	    if key not in key2index:
 		key2index[key] = len(key2index) + 1
 	return list(map(lambda x: key2index[x], key_ans))
 
@@ -45,8 +45,7 @@ def set_session():
 
 
 if __name__ == "__main__":
-    data = pd.read_csv('../datasets/intent_train.csv', sep=';')
-    test_data = pd.read_csv('../datasets/intent_test.csv', sep=';')
+    data = pd.read_csv('../datasets/intent_test.csv', sep=';')
 
     target = ['label']
 
@@ -58,11 +57,13 @@ if __name__ == "__main__":
     # dnn_feature_columns = factor_columns + action_columns + service_columns
 
     train_model_input = [factor_list] + [action_list] + [service_list]
-    model = dm.DCN(task=6723)
+    model = dm.DSCN(task=6723)
     model.compile("adam", "sparse_categorical_crossentropy", metrics=['accuracy'])
 
+    print('start training...')
     history = model.fit(train_model_input, data[target].values, batch_size=256, epochs=10, verbose=2, validation_split=0.03)
 
+    test_data = pd.read_csv('../datasets/intent_test.csv', sep=';')
     factor_list, factor_columns = process_varfeature(test_data, 'factor', 500)
     action_list, action_columns = process_varfeature(test_data, 'action', 100)
     service_list, service_columns = process_varfeature(test_data, 'service', 20)
