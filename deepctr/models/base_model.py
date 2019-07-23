@@ -374,9 +374,9 @@ def get_MIL_att(inputs, D=128, num_seeds=1, return_w=False):
     A = tf.nn.softmax(tf.transpose(A, [0, 2, 1]))  # b x 1 x M
     attented = tf.matmul(A, inputs)  # b x N(1) x d
     if num_seeds == 1:
-        attend = tf.squeeze(attented, axis=1)
+        attented = tf.squeeze(attented, axis=1)
     if return_w:
-        return attend, A
+        return attented, A
     else:
         return attented
 

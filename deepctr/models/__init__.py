@@ -2,6 +2,7 @@ from .afm import AFM
 from .autoint import AutoInt
 from .ccpm import CCPM
 from .dcn import DCN
+from .dscn import DSCN
 from .deepfm import DeepFM
 from .dien import DIEN
 from .din import DIN
