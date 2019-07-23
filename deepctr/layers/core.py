@@ -213,8 +213,9 @@ class PredictionLayer(Layer):
     """
 
     def __init__(self, task='binary', use_bias=True, **kwargs):
-        if task not in ["binary", "multiclass", "regression"]:
-            raise ValueError("task must be binary,multiclass or regression")
+        # if task not in ["binary", "multiclass", "regression"]:
+            # raise ValueError("task must be binary,multiclass or regression")
+	self.num_class = 1 if task == 'binary' else task
         self.task = task
         self.use_bias = use_bias
         super(PredictionLayer, self).__init__(**kwargs)
@@ -223,7 +224,7 @@ class PredictionLayer(Layer):
 
         if self.use_bias:
             self.global_bias = self.add_weight(
-                shape=(1,), initializer=Zeros(), name="global_bias")
+                shape=(self.num_class,), initializer=Zeros(), name="global_bias")
 
         # Be sure to call this somewhere!
         super(PredictionLayer, self).build(input_shape)
@@ -235,12 +236,12 @@ class PredictionLayer(Layer):
         if self.task == "binary":
             x = tf.sigmoid(x)
 
-        output = tf.reshape(x, (-1, 1))
+        output = tf.reshape(x, (-1, self.num_class))
 
         return output
 
     def compute_output_shape(self, input_shape):
-        return (None, 1)
+        return (None, self.num_class)
 
     def get_config(self, ):
         config = {'task': self.task, 'use_bias': self.use_bias}
