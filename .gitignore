@@ -9,6 +9,7 @@ __pycache__/
 .idea/
 # C extensions
 *.so
+*.csv
 
 # Distribution / packaging
 .Python

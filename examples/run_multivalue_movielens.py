@@ -3,8 +3,8 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 
-from deepctr.models import DeepFM
-from deepctr.inputs import SparseFeat, VarLenSparseFeat,get_fixlen_feature_names,get_varlen_feature_names
+from ..deepctr.models import DeepFM
+from ..deepctr.inputs import SparseFeat, VarLenSparseFeat,get_fixlen_feature_names,get_varlen_feature_names
 
 
 def split(x):
@@ -16,7 +16,7 @@ def split(x):
     return list(map(lambda x: key2index[x], key_ans))
 
 
-data = pd.read_csv("./movielens_sample.txt")
+data = pd.read_csv("../datasets/movielens_sample.txt")
 sparse_features = ["movie_id", "user_id",
                    "gender", "age", "occupation", "zip", ]
 target = ['rating']
@@ -44,7 +44,7 @@ varlen_feature_columns = [VarLenSparseFeat('genres', len(
 linear_feature_columns = fixlen_feature_columns + varlen_feature_columns
 dnn_feature_columns = fixlen_feature_columns + varlen_feature_columns
 fixlen_feature_names = get_fixlen_feature_names(linear_feature_columns + dnn_feature_columns)
-varlen_feature_names = get_varlen_feature_names(linear_feature_columns+dnn_feature_columns)
+varlen_feature_names = get_varlen_feature_names(linear_feature_columns + dnn_feature_columns)
 
 
 # 3.generate input data for model

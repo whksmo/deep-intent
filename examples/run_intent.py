@@ -7,13 +7,11 @@ from ..deepctr.models import DeepFM
 from ..deepctr.utils import SingleFeat
 
 if __name__ == "__main__":
-    data = pd.read_csv('./datasets/criteo_sample.txt')
+    data = pd.read_csv('./datasets/ksmo_all.csv')
 
     sparse_features = ['C' + str(i) for i in range(1, 27)]
-    dense_features = ['I' + str(i) for i in range(1, 14)]
 
-    data[sparse_features] = data[sparse_features].fillna('-1', )
-    data[dense_features] = data[dense_features].fillna(0, )
+    data[sparse_features] = data[sparse_features].fillna('0', )
     target = ['label']
 
     # 1.Label Encoding for sparse features,and do simple Transformation for dense features
