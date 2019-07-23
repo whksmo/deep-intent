@@ -4,14 +4,14 @@ import sys
 from os import path
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 
 from deepctr.models import DeepFM
 from deepctr.inputs import SparseFeat, VarLenSparseFeat,get_fixlen_feature_names,get_varlen_feature_names
-import tensorflow as tf
+
 
 def split(x):
     key_ans = x.split('|')
@@ -23,8 +23,7 @@ def split(x):
 
 
 data = pd.read_csv("../datasets/movielens_sample.txt")
-sparse_features = ["movie_id", "user_id",
-                   "gender", "age", "occupation", "zip", ]
+sparse_features = ["movie_id", "user_id", "gender", "age", "occupation", "zip", ]
 target = ['rating']
 
 # 1.Label Encoding for sparse features,and process sequence features

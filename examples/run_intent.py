@@ -1,50 +1,66 @@
 import pandas as pd
+import numpy as np
 from sklearn.metrics import log_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
-from ..deepctr.models import DeepFM
-from ..deepctr.utils import SingleFeat
+import sys
+from os import path
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+
+from tensorflow.python.keras.preprocessing.sequence import pad_sequences
+
+from deepctr.models import DeepFM
+import deepctr.models as dm
+from deepctr.inputs import SparseFeat, VarLenSparseFeat,get_fixlen_feature_names,get_varlen_feature_names
+
+
+def split(x):
+    key_ans = x.split('|')
+    for key in key_ans:
+        if key not in key2index:
+            # Notice : input value 0 is a special "padding",so we do not use 0 to encode valid feature for sequence input
+            key2index[key] = len(key2index) + 1
+    return list(map(lambda x: key2index[x], key_ans))
+
+
+def process_varfeature(data, f):
+    key2index = {}
+    factor_list = list(map(split, data[f].values))
+    factor_length = np.array(list(map(len, factor_list)))
+    max_len = max(factor_length)
+    factor_list = pad_sequences(factor_list, maxlen=max_len, padding='post', )
+    varlen_feature_columns = [VarLenSparseFeat(f, len(key2index) + 1, max_len, 'mean')]
+    return factor_list, varlen_feature_columns
 
 if __name__ == "__main__":
-    data = pd.read_csv('./datasets/ksmo_all.csv')
+    data = pd.read_csv('../datasets/intent_train.csv', sep=';')
+    test_data = pd.read_csv('../datasets/intent_test.csv', sep=';')
 
-    sparse_features = ['C' + str(i) for i in range(1, 27)]
-
-    data[sparse_features] = data[sparse_features].fillna('0', )
     target = ['label']
 
-    # 1.Label Encoding for sparse features,and do simple Transformation for dense features
-    for feat in sparse_features:
-        lbe = LabelEncoder()
-        data[feat] = lbe.fit_transform(data[feat])
+    factor_list, factor_columns = process_varfeature(data, 'factor')
+    action_list, action_columns = process_varfeature(data, 'action')
+    service_list, service_columns = process_varfeature(data, 'service')
 
-    mms = MinMaxScaler(feature_range=(0, 1))
-    data[dense_features] = mms.fit_transform(data[dense_features])
+    linear_feature_columns = factor_columns + action_columns + service_columns
+    dnn_feature_columns = factor_columns + action_columns + service_columns
+    varlen_feature_names = get_varlen_feature_names(linear_feature_columns + dnn_feature_columns)
 
-    # 2.count #unique features for each sparse field,and record dense feature field name
+    train_model_input = [factor_list] + [action_list] + [service_list]
+    model = dm.dcn(dnn_feature_columns, task=6723)
+    model.compile("adam", "categorical_crossentropy", metrics=['accuracy'])
 
-    sparse_feature_list = [SingleFeat(feat, data[feat].nunique())
-                           for feat in sparse_features]  # a list of tuples
-    dense_feature_list = [SingleFeat(feat, 0,)
-                          for feat in dense_features]
+    history = model.fit(train_model_input, data[target].values,
+                        batch_size=256, epochs=20, verbose=2, validation_split=0.1)
 
-    # 3.generate input data for model
+    factor_list, factor_columns = process_varfeature(test_data, 'factor')
+    action_list, action_columns = process_varfeature(test_data, 'action')
+    service_list, service_columns = process_varfeature(test_data, 'service')
+    test_model_input = [factor_list] + [action_list] + [service_list]
 
-    train, test = train_test_split(data, test_size=0.2)
-    train_model_input = [train[feat.name].values for feat in sparse_feature_list] + \
-                        [train[feat.name].values for feat in dense_feature_list]  # len(list) = num_features
-    test_model_input = [test[feat.name].values for feat in sparse_feature_list] + \
-                       [test[feat.name].values for feat in dense_feature_list]
-
-    # 4.Define Model,train,predict and evaluate
-    model = DeepFM({"sparse": sparse_feature_list,
-                    "dense": dense_feature_list}, task='binary')
-    model.compile("adam", "binary_crossentropy",
-                  metrics=['binary_crossentropy'], )
-
-    history = model.fit(train_model_input, train[target].values,
-                        batch_size=256, epochs=10, verbose=2, validation_split=0.2, )
     pred_ans = model.predict(test_model_input, batch_size=256)
-    print("test LogLoss", round(log_loss(test[target].values, pred_ans), 4))
-    print("test AUC", round(roc_auc_score(test[target].values, pred_ans), 4))
+    print("test LogLoss", round(log_loss(test_data[target].values, pred_ans), 4))
+    # print("test AUC", round(roc_auc_score(test_data[target].values, pred_ans), 4))

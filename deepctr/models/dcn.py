@@ -34,6 +34,7 @@ def DCN(dnn_feature_columns, embedding_size='auto', cross_num=2, dnn_hidden_unit
     :return: A Keras model instance.
 
     """
+    num_class = 1 if task == 'binary' else task
     if len(dnn_hidden_units) == 0 and cross_num == 0:
         raise ValueError("Either hidden_layer or cross layer must > 0")
 
@@ -51,14 +52,14 @@ def DCN(dnn_feature_columns, embedding_size='auto', cross_num=2, dnn_hidden_unit
                        dnn_use_bn, seed)(dnn_input)
         cross_out = CrossNet(cross_num, l2_reg=l2_reg_cross)(dnn_input)
         stack_out = tf.keras.layers.Concatenate()([cross_out, deep_out])
-        final_logit = tf.keras.layers.Dense(1, use_bias=False, activation=None)(stack_out)
+        final_logit = tf.keras.layers.Dense(num_class, use_bias=False, activation=None)(stack_out)
     elif len(dnn_hidden_units) > 0:  # Only Deep
         deep_out = DNN(dnn_hidden_units, dnn_activation, l2_reg_dnn, dnn_dropout,
                        dnn_use_bn, seed)(dnn_input)
-        final_logit = tf.keras.layers.Dense(1, use_bias=False, activation=None)(deep_out)
+        final_logit = tf.keras.layers.Dense(num_class, use_bias=False, activation=None)(deep_out)
     elif cross_num > 0:  # Only Cross
         cross_out = CrossNet(cross_num, l2_reg=l2_reg_cross)(dnn_input)
-        final_logit = tf.keras.layers.Dense(1, use_bias=False, activation=None)(cross_out)
+        final_logit = tf.keras.layers.Dense(num_class, use_bias=False, activation=None)(cross_out)
     else:  # Error
         raise NotImplementedError
 
