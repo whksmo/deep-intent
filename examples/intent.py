@@ -45,7 +45,7 @@ def set_session():
 
 
 if __name__ == "__main__":
-    data = pd.read_csv('../datasets/intent_test.csv', sep=';')
+    data = pd.read_csv('../datasets/intent_train.csv', sep=';')
 
     target = ['label']
 
@@ -61,8 +61,10 @@ if __name__ == "__main__":
     model.compile("adam", "sparse_categorical_crossentropy", metrics=['accuracy'])
 
     print('start training...')
-    history = model.fit(train_model_input, data[target].values, batch_size=256, epochs=10, verbose=2, validation_split=0.03)
+    history = model.fit(train_model_input, data[target].values, batch_size=256, epochs=40, verbose=2, validation_split=0.01)
+    model.save('./dscn.h5')
 
+    print('start test...')
     test_data = pd.read_csv('../datasets/intent_test.csv', sep=';')
     factor_list, factor_columns = process_varfeature(test_data, 'factor', 500)
     action_list, action_columns = process_varfeature(test_data, 'action', 100)
@@ -70,6 +72,6 @@ if __name__ == "__main__":
     test_model_input = [factor_list] + [action_list] + [service_list]
 
     # pred_ans = model.predict(test_model_input, batch_size=256)
-    pred_ans = model.evaluate(test_model_input, data[target].values, batch_size=256, verbose=1)
+    pred_ans = model.evaluate(test_model_input, test_data[target].values, batch_size=256, verbose=1)
     # print("test LogLoss", round(log_loss(test_data[target].values, pred_ans), 4))
     # print("test AUC", round(roc_auc_score(test_data[target].values, pred_ans), 4))

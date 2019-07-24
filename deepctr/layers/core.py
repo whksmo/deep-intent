@@ -215,6 +215,7 @@ class PredictionLayer(Layer):
     def __init__(self, task='binary', use_bias=True, **kwargs):
         # if task not in ["binary", "multiclass", "regression"]:
             # raise ValueError("task must be binary,multiclass or regression")
+
 	self.num_class = 1 if task == 'binary' else task
         self.task = task
         self.use_bias = use_bias
@@ -235,6 +236,8 @@ class PredictionLayer(Layer):
             x = tf.nn.bias_add(x, self.global_bias, data_format='NHWC')
         if self.task == "binary":
             x = tf.sigmoid(x)
+	else:
+	    x = tf.nn.softmax(x)
 
         output = tf.reshape(x, (-1, self.num_class))
 

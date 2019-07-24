@@ -1,5 +1,3 @@
-from typing import List, Tuple
-
 import tensorflow.keras.backend as K
 import keras.layers
 from tensorflow.keras import optimizers
