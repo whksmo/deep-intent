@@ -1092,7 +1092,7 @@ class MILAttention(Layer):
 
 class SeqEmbedding(Layer):
 
-    def __init__(self, factor_num, embedding_dim, type='lstm',**kwargs):
+    def __init__(self, factor_num, embedding_dim, type='lstm', **kwargs):
         self.factor_num = factor_num
         self.embedding_dim = embedding_dim
         self.type = type
@@ -1101,9 +1101,11 @@ class SeqEmbedding(Layer):
     def build(self, input_shape):
         self.embeding = tf.keras.layers.Embedding(self.factor_num, self.embedding_dim)
         if self.type == 'lstm':
+	    print('use lstm for seq')
             self.seq_model = tf.keras.layers.CuDNNLSTM(self.embedding_dim, return_sequences=True)
         else:
-            self.seq_model = tf.keras.layers.Lambda(tf.reduce_mean(axis=1))
+	    print('use sum for seq')
+            self.seq_model = tf.keras.layers.Lambda(lambda x: tf.reduce_mean(x, axis=1))
 
         super(SeqEmbedding, self).build(input_shape)
 
