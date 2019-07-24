@@ -1052,23 +1052,24 @@ class MILAttention(Layer):
         super(MILAttention, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        input_dim = input_shape[-1]
-        self.W1 = self.add_weight(shape=(input_dim, self.D), initializer=glorot_normal(), name="dnn1")
-        self.W2 = self.add_weight(shape=(input_dim, self.D), initializer=glorot_normal(), name="dnn2")
-        self.W_att = self.add_weight(shape=(self.D, 1), initializer=glorot_normal(), name="dnn_att")
+        input_dim = input_shape[-1].value
+        self.W1 = self.add_weight(shape=(input_dim, self.D), initializer=glorot_uniform(), name="dnn1")
+        self.W2 = self.add_weight(shape=(input_dim, self.D), initializer=glorot_uniform(), name="dnn2")
+        self.W_att = self.add_weight(shape=(self.D, 1), initializer=glorot_uniform(), name="dnn_att")
 
         super(MILAttention, self).build(input_shape)
 
     def compute_mask(self, inputs, mask=None):
-        pass
+	return None
 
     def call(self, inputs, mask=None, **kwargs):
-        relu_out = tf.nn.relu(tf.tensordot(inputs, self.W1, axes=[-1, 0]))
+        tanh_out = tf.nn.tanh(tf.tensordot(inputs, self.W1, axes=[-1, 0]))
         sigmoid_out = tf.nn.sigmoid(tf.tensordot(inputs, self.W2, axes=[-1, 0]))
-        attention = relu_out * sigmoid_out
+        attention = tanh_out * sigmoid_out
         A = tf.tensordot(attention, self.W_att, axes=(-1, 0))
     	if mask is not None:
-    	    A -= tf.cast(mask[..., tf.newaxis],tf.float32) * 1e9
+	    print('add new masking...')
+    	    A -= (1 - tf.cast(mask[..., tf.newaxis],tf.float32)) * 1e9
         A = tf.nn.softmax(tf.transpose(A, [0, 2, 1]))  # b x 1 x M
         attented = tf.matmul(A, inputs)  # b x N(1) x d
         if self.num_seeds == 1:
@@ -1089,13 +1090,17 @@ class MILAttention(Layer):
 
 class MaskMean(Layer):
     def compute_mask(self, inputs, mask=None):
-        pass
+        return None
 
     def call(self, inputs, mask=None, **kwargs):
+inputs * tf.cast(mask[..., tf.newaxis], tf.float32)
 	if mask is not None:
-            return tf.reduce_mean(inputs * tf.cast(mask[..., tf.newaxis], tf.float32), axis=1)
+            return tf.reduce_mean(, axis=1)
 	else:
 	    return tf.reduce_mean(inputs, axis=1)
+
+    def compute_output_shape(self, input_shape):
+        return (None, input_shape[-1])
 
 class SeqEmbedding(Layer):
 
@@ -1106,16 +1111,20 @@ class SeqEmbedding(Layer):
         super(SeqEmbedding, self).__init__(**kwargs)
 
     def build(self, input_shape):
-    	print(self.factor_num, self.embedding_dim)
-        self.embedding = tf.keras.layers.Embedding(self.factor_num, self.embedding_dim, mask_zero=True)
-    	self.embedding.build(input_shape)
-        print(self._trainable_weights)
-    	self._trainable_weights = self.embedding.trainable_weights
-        print(self._trainable_weights)
         if self.type == 'lstm':
+	    self.embedding = tf.keras.layers.Embedding(self.factor_num, self.embedding_dim)
+	    self.embedding.build(input_shape)
+	    self._trainable_weights = self.embedding.trainable_weights
     	    print('use lstm for seq')
             self.seq_model = tf.keras.layers.CuDNNLSTM(self.embedding_dim, return_sequences=True)
+	    self.seq_model.build((None, input_shape[1], self.embedding_dim))
+	    self._trainable_weights += self.seq_model.trainable_weights
+	    print(self._trainable_weights)
         else:
+	    self.embedding = tf.keras.layers.Embedding(self.factor_num, self.embedding_dim, mask_zero=True)
+	    self.embedding.build(input_shape)
+	    self._trainable_weights = self.embedding.trainable_weights
+	    print(self._trainable_weights)
     	    print('use sum for seq')
             self.seq_model = MaskMean()
 

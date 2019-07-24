@@ -19,7 +19,7 @@ from deepctr.inputs import SparseFeat, VarLenSparseFeat,get_fixlen_feature_names
 
 
 def run():
-    model = DSCN(task=6723)
+    model = DSCN(num_class=6723)
     model.compile("adam", "sparse_categorical_crossentropy", metrics=['accuracy'])
     history = model.fit(train_model_input, data[target].values, batch_size=256, epochs=20, verbose=2, validation_split=0.035)
 
