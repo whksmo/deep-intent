@@ -1041,3 +1041,80 @@ Tongwen](https://arxiv.org/pdf/1905.09433.pdf)
         config = {'bilinear_type': self.bilinear_type, 'seed': self.seed}
         base_config = super(BilinearInteraction, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+
+class MILAttention(Layer):
+
+    def __init__(self, num_seeds=1, D=128, return_w=False, **kwargs):
+        self.num_seeds = num_seeds
+        self.D = D
+
+        super(MILAttention, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.dnn1 = tf.keras.layers.Dense(self.D, activation='relu')
+        self.dnn2 = tf.keras.layers.Dense(self.D, activation='sigmoid')
+        self.dnn_att = tf.keras.layers.Dense(self.num_seeds)
+
+        super(MILAttention, self).build(input_shape)
+
+    def call(self, inputs, mask=None, **kwargs):
+
+        attention = self.dnn1(inputs) * self.dnn2(inputs)
+        A = self.dnn_att(attention)
+        A -= mask * 1e9
+        A = tf.nn.softmax(tf.transpose(A, [0, 2, 1]))  # b x 1 x M
+        attented = tf.matmul(A, inputs)  # b x N(1) x d
+        if self.num_seeds == 1:
+            attented = tf.squeeze(attented, axis=1)
+        return attented
+
+    def compute_output_shape(self, input_shape):
+        embedding_size = input_shape[-1]
+        if self.num_seeds == 1:
+            return (None, embedding_size)
+        else:
+            return (None, self.num_seeds, embedding_size)
+
+    def get_config(self, ):
+        config = {'num_seeds': self.num_seeds, 'D': self.D}
+        base_config = super(MILAttention, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+class ExtractLast(Layer):
+
+    def __init__(self, num_seeds=1, D=128, return_w=False, **kwargs):
+        self.num_seeds = num_seeds
+        self.D = D
+
+        super(MILAttention, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.dnn1 = tf.keras.layers.Dense(self.D, activation='relu')
+        self.dnn2 = tf.keras.layers.Dense(self.D, activation='sigmoid')
+        self.dnn_att = tf.keras.layers.Dense(self.num_seeds)
+
+        super(MILAttention, self).build(input_shape)
+
+    def call(self, inputs, mask=None, **kwargs):
+
+        attention = self.dnn1(inputs) * self.dnn2(inputs)
+        A = self.dnn_att(attention)
+        A -= mask * 1e9
+        A = tf.nn.softmax(tf.transpose(A, [0, 2, 1]))  # b x 1 x M
+        attented = tf.matmul(A, inputs)  # b x N(1) x d
+        if self.num_seeds == 1:
+            attented = tf.squeeze(attented, axis=1)
+        return attented
+
+    def compute_output_shape(self, input_shape):
+        embedding_size = input_shape[-1]
+        if self.num_seeds == 1:
+            return (None, embedding_size)
+        else:
+            return (None, self.num_seeds, embedding_size)
+
+    def get_config(self, ):
+        config = {'num_seeds': self.num_seeds, 'D': self.D}
+        base_config = super(MILAttention, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))

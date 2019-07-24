@@ -4,7 +4,7 @@ from ..inputs import input_from_feature_columns,build_input_features,combined_dn
 from ..layers.core import PredictionLayer, DNN
 from ..layers.tcn import TCN
 from ..layers.interaction import CrossNet
-from tensorflow.python.keras.layers import Embedding, Input, Flatten, Lambda, CuDNNLSTM, LSTM
+from tensorflow.python.keras.layers import Activation, Embedding, Input, Flatten, Lambda, CuDNNLSTM, LSTM
 from base_model import *
 
 
@@ -55,7 +55,7 @@ def DSCN(embedding_size='auto', cross_num=2, dnn_hidden_units=(1000, 512,), l2_r
 
     logits_stu = Dense(num_class)(concat_output)
     # pred_stu = PredictionLayer(num_class)(logits_stu)
-    predict_result = Lambda(tf.nn.softmax)(logits_stu)
+    predict_result = Activation('softmax')(logits_stu)
     # predict_result = pred_stu
     model = tf.keras.models.Model(inputs=input_list, outputs=predict_result)
 

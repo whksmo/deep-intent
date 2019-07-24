@@ -1,9 +1,9 @@
 import tensorflow.keras.backend as K
-import keras.layers
 from tensorflow.keras import optimizers
 from tensorflow.keras.layers import Layer, Activation, Lambda, Conv1D, SpatialDropout1D
 from tensorflow.keras.layers import Dense, BatchNormalization, Input
 from tensorflow.keras import Model
+import tensorflow as tf
 
 
 def residual_block(x, dilation_rate, nb_filters, kernel_size, padding, activation='relu', dropout_rate=0,
@@ -39,7 +39,7 @@ def residual_block(x, dilation_rate, nb_filters, kernel_size, padding, activatio
 
     # 1x1 conv to match the shapes (channel dimension).
     prev_x = Conv1D(nb_filters, 1, padding='same')(prev_x)
-    res_x = keras.layers.add([prev_x, x])
+    res_x = tf.keras.layers.add([prev_x, x])
     res_x = Activation(activation)(res_x)
     return res_x, x
 
@@ -56,7 +56,7 @@ def process_dilations(dilations):
         return new_dilations
 
 
-class TCN:
+class TCN(Layer):
     """Creates a TCN layer.
 
         Input shape:
@@ -92,7 +92,8 @@ class TCN:
                  activation='linear',
                  name='tcn',
                  kernel_initializer='he_normal',
-                 use_batch_norm=False):
+                 use_batch_norm=False,
+                 **kwargs):
         self.name = name
         self.return_sequences = return_sequences
         self.dropout_rate = dropout_rate
@@ -116,10 +117,17 @@ class TCN:
             print('The alternative is to downgrade to 2.1.2 (pip install keras-tcn==2.1.2).')
             raise Exception()
 
-    def __call__(self, inputs):
+        super(TCN, self).__init__(**kwargs)
+
+    def build(self, input_shape, **kwargs):
+        self.conv = Conv1D(self.nb_filters, 1, padding=self.padding, kernel_initializer=self.kernel_initializer)
+
+        super(TCN, self).build(input_shape)
+
+    def call(self, inputs, mask=None, *kwargs):
         x = inputs
         # 1D FCN.
-        x = Conv1D(self.nb_filters, 1, padding=self.padding, kernel_initializer=self.kernel_initializer)(x)
+        x = self.conv(x)
         skip_connections = []
         for s in range(self.nb_stacks):
             for d in self.dilations:
@@ -134,7 +142,7 @@ class TCN:
                                              use_batch_norm=self.use_batch_norm)
                 skip_connections.append(skip_out)
         if self.use_skip_connections:
-            x = keras.layers.add(skip_connections)
+            x = tf.keras.layers.add(skip_connections)
         if not self.return_sequences:
             x = Lambda(lambda tt: tt[:, -1, :])(x)
         return x
