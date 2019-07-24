@@ -1089,13 +1089,17 @@ class MaskMean(Layer):
     def __init__(self, **kwargs):
         super(MaskMean, self).__init__(**kwargs)
 
+    def build(self, input_shape):
+        super(MaskMean, self).build(input_shape)
+
     def compute_mask(self, inputs, mask=None):
         pass
 
     def call(self, inputs, mask=None, **kwargs):
-        if mask is not None:
+	if mask is not None:
             return tf.reduce_mean(inputs * tf.cast(mask[..., tf.newaxis], tf.float32), axis=1)
-        else return tf.reduce_mean(intputs, axis=1)
+	else:
+	    return tf.reduce_mean(inputs, axis=1)
 
 class SeqEmbedding(Layer):
 
@@ -1106,7 +1110,10 @@ class SeqEmbedding(Layer):
         super(SeqEmbedding, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        self.embeding = tf.keras.layers.Embedding(self.factor_num, self.embedding_dim)
+	print(self.factor_num, self.embedding_dim)
+        self.embedding = tf.keras.layers.Embedding(self.factor_num, self.embedding_dim, mask_zero=True)
+	self.embedding.build(input_shape)
+	self._trainable_weights = self.embedding.trainable_weights
         if self.type == 'lstm':
 	    print('use lstm for seq')
             self.seq_model = tf.keras.layers.CuDNNLSTM(self.embedding_dim, return_sequences=True)
@@ -1117,10 +1124,10 @@ class SeqEmbedding(Layer):
         super(SeqEmbedding, self).build(input_shape)
 
     def call(self, inputs, **kwargs):
-        embedding_seq = self.embeding(inputs)
-        input_length = tf.reduce_sum(tf.cast(tf.not_equal(inputs, 0), tf.int32), 1)
+        embedding_seq = self.embedding(inputs)
         seq_feature = self.seq_model(embedding_seq)
         if self.type == 'lstm':
+	    input_length = tf.reduce_sum(tf.cast(tf.not_equal(inputs, 0), tf.int32), 1)
             seq_feature = self.get_last_state(seq_feature, input_length)
         return seq_feature
 
