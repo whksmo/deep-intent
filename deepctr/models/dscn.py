@@ -36,16 +36,17 @@ def DSCN(embedding_size='auto', cross_num=2, dnn_hidden_units=(1000, 512,), l2_r
         input_factor_feature = Lambda(lambda x: tf.reduce_mean(x, axis=1))(input_factor_embedding)
         # input_factor_feature = Lambda(get_MIL_att)(input_factor_embedding)
 
-    # input_action_embedding = Embedding(action_num, action_embedding_dim, mask_zero=True)(input_action)
-    # input_service_embedding = Embedding(service_num, service_embedding_dim, mask_zero=True)(input_service)
+    input_action_embedding = Embedding(action_num, action_embedding_dim, mask_zero=True)(input_action)
+    input_service_embedding = Embedding(service_num, service_embedding_dim, mask_zero=True)(input_service)
     # input_action_feature = TCN(nb_filters=64, kernel_size=6, dilations=[1, 2, 4, 8, 16, 32, 64])(input_action_embedding)
     # input_action_feature = LSTM(action_embedding_dim, unroll=True)(input_action_embedding)
-    # input_action_feature = Lambda(lambda x: tf.reduce_mean(x, axis=1))(input_action_embedding)
+    input_action_feature = Lambda(lambda x: tf.reduce_mean(x, axis=1))(input_action_embedding)
     # input_service_feature = TCN(nb_filters=64, kernel_size=6, dilations=[1, 2, 4, 8, 16, 32, 64])(input_service_embedding)
     # input_service_feature = LSTM(service_embedding_dim, unroll=True)(input_service_embedding)
-    # input_service_feature = Lambda(lambda x: tf.reduce_mean(x, axis=1))(input_service_embedding)
-    input_action_feature = SeqEmbedding(action_num, action_embedding_dim)(input_action)
-    input_service_feature = SeqEmbedding(service_num, service_embedding_dim)(input_service)
+    input_service_feature = Lambda(lambda x: tf.reduce_mean(x, axis=1))(input_service_embedding)
+    print('hahaha')
+    # input_action_feature = SeqEmbedding(action_num, action_embedding_dim, type='mean')(input_action)
+    # input_service_feature = SeqEmbedding(service_num, service_embedding_dim, type='mean')(input_service)
 
     input_layer = tf.keras.layers.concatenate([input_factor_feature, input_action_feature, input_service_feature], axis=1)
 
