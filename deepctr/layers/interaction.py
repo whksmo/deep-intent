@@ -1089,6 +1089,7 @@ class MILAttention(Layer):
         base_config = super(MILAttention, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
+
 class SeqEmbedding(Layer):
 
     def __init__(self, factor_num, embedding_dim, type='lstm',**kwargs):
@@ -1124,13 +1125,9 @@ class SeqEmbedding(Layer):
         return relevant
 
     def compute_output_shape(self, input_shape):
-        embedding_size = input_shape[-1]
-        if self.num_seeds == 1:
-            return (None, embedding_size)
-        else:
-            return (None, self.num_seeds, embedding_size)
+        return (None, self.embedding_dim)
 
-    def get_config(self, ):
-        config = {'num_seeds': self.num_seeds, 'D': self.D}
-        base_config = super(MILAttention, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+    # def get_config(self, ):
+    #     config = {'num_seeds': self.num_seeds, 'D': self.D}
+    #     base_config = super(MILAttention, self).get_config()
+    #     return dict(list(base_config.items()) + list(config.items()))
