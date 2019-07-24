@@ -1052,19 +1052,21 @@ class MILAttention(Layer):
         super(MILAttention, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        self.dnn1 = tf.keras.layers.Dense(self.D, activation='relu')
-        self.dnn2 = tf.keras.layers.Dense(self.D, activation='sigmoid')
-        self.dnn_att = tf.keras.layers.Dense(self.num_seeds)
+        input_dim = input_shape[-1]
+        self.W1 = self.add_weight(shape=(input_dim, self.D), initializer=glorot_normal(), name="dnn1")
+        self.W2 = self.add_weight(shape=(input_dim, self.D), initializer=glorot_normal(), name="dnn2")
+        self.W_att = self.add_weight(shape=(self.D, 1), initializer=glorot_normal(), name="dnn_att")
 
         super(MILAttention, self).build(input_shape)
 
     def compute_mask(self, inputs, mask=None):
-    	return [None] * self.num_seeds
+        pass
 
     def call(self, inputs, mask=None, **kwargs):
-
-        attention = self.dnn1(inputs) * self.dnn2(inputs)
-        A = self.dnn_att(attention)
+        relu_out = tf.nn.relu(tf.tensordot(inputs, self.W1, axes=[-1, 0]))
+        sigmoid_out = tf.nn.sigmoid(tf.tensordot(inputs, self.W2, axes=[-1, 0]))
+        attention = relu_out * sigmoid_out
+        A = tf.tensordot(attention, self.W_att, axes=(-1, 0))
     	if mask is not None:
     	    A -= tf.cast(mask[..., tf.newaxis],tf.float32) * 1e9
         A = tf.nn.softmax(tf.transpose(A, [0, 2, 1]))  # b x 1 x M
@@ -1086,12 +1088,6 @@ class MILAttention(Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 class MaskMean(Layer):
-    def __init__(self, **kwargs):
-        super(MaskMean, self).__init__(**kwargs)
-
-    def build(self, input_shape):
-        super(MaskMean, self).build(input_shape)
-
     def compute_mask(self, inputs, mask=None):
         pass
 
@@ -1110,15 +1106,17 @@ class SeqEmbedding(Layer):
         super(SeqEmbedding, self).__init__(**kwargs)
 
     def build(self, input_shape):
-	print(self.factor_num, self.embedding_dim)
+    	print(self.factor_num, self.embedding_dim)
         self.embedding = tf.keras.layers.Embedding(self.factor_num, self.embedding_dim, mask_zero=True)
-	self.embedding.build(input_shape)
-	self._trainable_weights = self.embedding.trainable_weights
+    	self.embedding.build(input_shape)
+        print(self._trainable_weights)
+    	self._trainable_weights = self.embedding.trainable_weights
+        print(self._trainable_weights)
         if self.type == 'lstm':
-	    print('use lstm for seq')
+    	    print('use lstm for seq')
             self.seq_model = tf.keras.layers.CuDNNLSTM(self.embedding_dim, return_sequences=True)
         else:
-	    print('use sum for seq')
+    	    print('use sum for seq')
             self.seq_model = MaskMean()
 
         super(SeqEmbedding, self).build(input_shape)
@@ -1127,7 +1125,7 @@ class SeqEmbedding(Layer):
         embedding_seq = self.embedding(inputs)
         seq_feature = self.seq_model(embedding_seq)
         if self.type == 'lstm':
-	    input_length = tf.reduce_sum(tf.cast(tf.not_equal(inputs, 0), tf.int32), 1)
+    	    input_length = tf.reduce_sum(tf.cast(tf.not_equal(inputs, 0), tf.int32), 1)
             seq_feature = self.get_last_state(seq_feature, input_length)
         return seq_feature
 
