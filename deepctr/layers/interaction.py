@@ -1081,31 +1081,39 @@ class MILAttention(Layer):
         base_config = super(MILAttention, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
-class ExtractLast(Layer):
+class SeqEmbedding(Layer):
 
-    def __init__(self, num_seeds=1, D=128, return_w=False, **kwargs):
-        self.num_seeds = num_seeds
-        self.D = D
-
-        super(MILAttention, self).__init__(**kwargs)
+    def __init__(self, factor_num, embedding_dim, type='lstm',**kwargs):
+        self.factor_num = factor_num
+        self.embedding_dim = embedding_dim
+        self.type = type
+        super(SeqEmbedding, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        self.dnn1 = tf.keras.layers.Dense(self.D, activation='relu')
-        self.dnn2 = tf.keras.layers.Dense(self.D, activation='sigmoid')
-        self.dnn_att = tf.keras.layers.Dense(self.num_seeds)
+        self.embeding = tf.keras.layers.Embedding(self.factor_num, self.embedding_dim)
+        if self.type == 'lstm':
+            self.seq_model = tf.keras.layers.CuDNNLSTM(self.embedding_dim, return_sequences=True)
+        else:
+            self.seq_model = tf.keras.layers.Lambda(tf.reduce_mean(axis=1))
 
-        super(MILAttention, self).build(input_shape)
+        super(SeqEmbedding, self).build(input_shape)
 
-    def call(self, inputs, mask=None, **kwargs):
+    def call(self, inputs, **kwargs):
+        embedding_seq = self.embeding(inputs)
+        input_length = tf.reduce_sum(tf.cast(tf.not_equal(inputs, 0), tf.int32), 1)
+        seq_feature = self.seq_model(embedding_seq)
+        if self.type == 'lstm':
+            seq_feature = self.get_last_state(seq_feature, input_length)
+        return seq_feature
 
-        attention = self.dnn1(inputs) * self.dnn2(inputs)
-        A = self.dnn_att(attention)
-        A -= mask * 1e9
-        A = tf.nn.softmax(tf.transpose(A, [0, 2, 1]))  # b x 1 x M
-        attented = tf.matmul(A, inputs)  # b x N(1) x d
-        if self.num_seeds == 1:
-            attented = tf.squeeze(attented, axis=1)
-        return attented
+    def get_last_state(self, outputs, length):
+        batch_size = tf.shape(outputs)[0]
+        max_length = tf.shape(outputs)[1]
+        out_size = outputs.shape.as_list()[2]
+        index = tf.range(0, batch_size) * max_length + tf.abs((tf.cast(length, tf.int32) - 1))
+        flat = tf.reshape(outputs, [-1, out_size])
+        relevant = tf.gather(flat, index)
+        return relevant
 
     def compute_output_shape(self, input_shape):
         embedding_size = input_shape[-1]
