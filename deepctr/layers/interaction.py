@@ -1059,19 +1059,15 @@ class MILAttention(Layer):
         super(MILAttention, self).build(input_shape)
 
     def compute_mask(self, inputs, mask=None):
-	return [None] * self.num_seeds
+    	return [None] * self.num_seeds
 
     def call(self, inputs, mask=None, **kwargs):
 
         attention = self.dnn1(inputs) * self.dnn2(inputs)
         A = self.dnn_att(attention)
-	print(A.shape.as_list())
-	if mask is not None:
-	    print(mask.shape.as_list())
-	    A -= tf.cast(mask[..., tf.newaxis],tf.float32) * 1e9
-	print(A.shape.as_list())
+    	if mask is not None:
+    	    A -= tf.cast(mask[..., tf.newaxis],tf.float32) * 1e9
         A = tf.nn.softmax(tf.transpose(A, [0, 2, 1]))  # b x 1 x M
-	print(A.shape.as_list())
         attented = tf.matmul(A, inputs)  # b x N(1) x d
         if self.num_seeds == 1:
             attented = tf.squeeze(attented, axis=1)
@@ -1089,6 +1085,17 @@ class MILAttention(Layer):
         base_config = super(MILAttention, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
+class MaskMean(Layer):
+    def __init__(self, **kwargs):
+        super(MaskMean, self).__init__(**kwargs)
+
+    def compute_mask(self, inputs, mask=None):
+        pass
+
+    def call(self, inputs, mask=None, **kwargs):
+        if mask is not None:
+            return tf.reduce_mean(inputs * tf.cast(mask[..., tf.newaxis], tf.float32), axis=1)
+        else return tf.reduce_mean(intputs, axis=1)
 
 class SeqEmbedding(Layer):
 
@@ -1105,7 +1112,7 @@ class SeqEmbedding(Layer):
             self.seq_model = tf.keras.layers.CuDNNLSTM(self.embedding_dim, return_sequences=True)
         else:
 	    print('use sum for seq')
-            self.seq_model = tf.keras.layers.Lambda(lambda x: tf.reduce_mean(x, axis=1))
+            self.seq_model = MaskMean()
 
         super(SeqEmbedding, self).build(input_shape)
 
