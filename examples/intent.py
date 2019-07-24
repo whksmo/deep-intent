@@ -61,7 +61,7 @@ if __name__ == "__main__":
     model.compile("adam", "sparse_categorical_crossentropy", metrics=['accuracy'])
 
     print('start training...')
-    history = model.fit(train_model_input, data[target].values, batch_size=256, epochs=40, verbose=2, validation_split=0.01)
+    history = model.fit(train_model_input, data[target].values, batch_size=256, epochs=20, verbose=2, validation_split=0.01)
     model.save('./dscn.h5')
 
     print('start test...')
