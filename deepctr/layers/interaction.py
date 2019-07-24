@@ -232,8 +232,7 @@ class CIN(Layer):
         for i, size in enumerate(self.layer_size):
 
             self.filters.append(self.add_weight(name='filter' + str(i),
-                                                shape=[1, self.field_nums[-1]
-                                                       * self.field_nums[0], size],
+                                                shape=[1, self.field_nums[-1] * self.field_nums[0], size],
                                                 dtype=tf.float32, initializer=glorot_uniform(
                                                     seed=self.seed + i),
                                                 regularizer=l2(self.l2_reg)))
@@ -556,6 +555,12 @@ class InteractingLayer(Layer):
         self.seed = seed
         super(InteractingLayer, self).__init__(**kwargs)
 
+    def compute_mask(self, inputs, mask=None):
+        if mask is not None:
+            return mask
+        else:
+            return None
+
     def build(self, input_shape):
         if len(input_shape) != 3:
             raise ValueError(
@@ -578,7 +583,7 @@ class InteractingLayer(Layer):
         # Be sure to call this somewhere!
         super(InteractingLayer, self).build(input_shape)
 
-    def call(self, inputs, **kwargs):
+    def call(self, inputs, mask=None, **kwargs):
         if K.ndim(inputs) != 3:
             raise ValueError(
                 "Unexpected inputs dimensions %d, expect to be 3 dimensions" % (K.ndim(inputs)))
@@ -594,6 +599,8 @@ class InteractingLayer(Layer):
         values = tf.stack(tf.split(values, self.head_num, axis=2))
 
         inner_product = tf.matmul(querys, keys, transpose_b=True)  # head_num None F F
+        if mask is not None:
+            inner_product -= (1 - tf.cast(mask[tf.newaxis, :, tf.newaxis, :], tf.float32)) * 1e9
         self.normalized_att_scores = tf.nn.softmax(inner_product)
 
         result = tf.matmul(self.normalized_att_scores, values)  # head_num None F D
@@ -615,6 +622,95 @@ class InteractingLayer(Layer):
                   'seed': self.seed}
         base_config = super(InteractingLayer, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+
+class MAB(Layer):
+    def __init__(self, att_embedding_size=8, head_num=2, use_res=True, seed=1024, ln=False, **kwargs):
+        if head_num <= 0:
+            raise ValueError('head_num must be a int > 0')
+        self.att_embedding_size = att_embedding_size
+        self.head_num = head_num
+        self.use_res = use_res
+        self.seed = seed
+        self.ln = ln
+        self.dim_V = self.att_embedding_size * self.head_num
+        super(MAB, self).__init__(**kwargs)
+
+    def compute_mask(self, inputs, mask=None):
+        return None
+
+    def build(self, input_shape):
+        if len(input_shape[0]) != 3:
+            raise ValueError(
+                "Unexpected inputs dimensions %d, expect to be 3 dimensions" % (len(input_shape)))
+        input_size = input_shape[0][-1].value
+        self.W_Query = self.add_weight(name='query', shape=[input_size, self.dim_V],
+                                       initializer=tf.keras.initializers.TruncatedNormal(seed=self.seed))
+        self.W_key = self.add_weight(name='key', shape=[input_size, self.dim_V],
+                                     initializer=tf.keras.initializers.TruncatedNormal(seed=self.seed + 1))
+        self.W_Value = self.add_weight(name='value', shape=[input_size, self.dim_V],
+                                       initializer=tf.keras.initializers.TruncatedNormal(seed=self.seed + 2))
+        if self.use_res:
+            self.W_Res = self.add_weight(name='res', shape=[input_size, self.dim_V],
+                                         initializer=tf.keras.initializers.TruncatedNormal(seed=self.seed))
+
+        if self.ln:
+            self.ln0 = tf.contrib.layers.layer_norm
+            self.ln1 = tf.contrib.layers.layer_norm
+        super(MAB, self).build(input_shape)
+
+    def call(self, inputs, mask=None, **kwargs):
+        if len(inputs) != 2:
+            raise ValueError(
+                "Unexpected inputs length %d, expect to be 2 dimensions" % (len(inputs)))
+        Q_, K_ = inputs
+        Q = tf.tensordot(Q_, self.W_Query, axes=(-1, 0))  # None F D*head_num
+        K = tf.tensordot(K_, self.W_key, axes=(-1, 0))
+        V = tf.tensordot(K_, self.W_Value, axes=(-1, 0))
+
+        # head_num None F D
+        Q = tf.stack(tf.split(Q, self.head_num, axis=2))
+        K = tf.stack(tf.split(K, self.head_num, axis=2))
+        V = tf.stack(tf.split(V, self.head_num, axis=2))
+
+        score = tf.matmul(Q, K, transpose_b=True)  # head_num None F F
+        if mask is not None:
+            score -= (1 - tf.cast(mask[tf.newaxis, :, tf.newaxis, :], tf.float32)) * 1e9
+        A = tf.nn.softmax(score / tf.sqrt(tf.cast(self.dim_V, tf.float32)))
+
+        output = tf.concat(tf.split(Q + tf.matmul(A, V), self.head_num, axis=0), axis=-1)  # 1 x b x m x D
+        output = tf.squeeze(output, axis=0)
+        if self.ln:
+            output = self.ln0(output)
+        if self.use_res:
+            output += tf.nn.relu(tf.tensordot(inputs, self.W_Res, axes=(-1, 0)))
+        if self.ln:
+            output = self.ln1(output)
+
+        return output
+
+    def compute_output_shape(self, input_shape):
+        return (None, input_shape[0][1], self.dim_V)
+
+
+def SAB(dim_out, head_num, ln=False):
+    return MAB(dim_out, head_num, ln=ln)
+
+
+class PMA(MAB):
+    def __init__(self, num_seeds=48, **kwargs):
+        self.num_seeds = num_seeds
+        super(PMA, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.S = self.add_weight(name='S', shape=[1, self.num_seeds, self.dim_V], initializer=glorot_uniform())
+        super(PMA, self).build(input_shape)
+
+    def call(self, inputs, **kwargs):
+        return super(PMA, self).call(inputs, S, **kwargs)
+
+    def compute_output_shape(self, input_shape):
+        return (None, input_shape[1], self.dim_V)
 
 
 class OutterProductLayer(Layer):
@@ -1093,14 +1189,13 @@ class MaskMean(Layer):
         return None
 
     def call(self, inputs, mask=None, **kwargs):
-inputs * tf.cast(mask[..., tf.newaxis], tf.float32)
-	if mask is not None:
-            return tf.reduce_mean(, axis=1)
-	else:
+        inputs *= tf.cast(mask[..., tf.newaxis], tf.float32)
 	    return tf.reduce_mean(inputs, axis=1)
 
     def compute_output_shape(self, input_shape):
         return (None, input_shape[-1])
+
+
 
 class SeqEmbedding(Layer):
 
@@ -1149,8 +1244,3 @@ class SeqEmbedding(Layer):
 
     def compute_output_shape(self, input_shape):
         return (None, self.embedding_dim)
-
-    # def get_config(self, ):
-    #     config = {'num_seeds': self.num_seeds, 'D': self.D}
-    #     base_config = super(MILAttention, self).get_config()
-    #     return dict(list(base_config.items()) + list(config.items()))
