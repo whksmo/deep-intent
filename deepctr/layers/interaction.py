@@ -1058,12 +1058,20 @@ class MILAttention(Layer):
 
         super(MILAttention, self).build(input_shape)
 
+    def compute_mask(self, inputs, mask=None):
+	return [None] * self.num_seeds
+
     def call(self, inputs, mask=None, **kwargs):
 
         attention = self.dnn1(inputs) * self.dnn2(inputs)
         A = self.dnn_att(attention)
-        A -= mask * 1e9
+	print(A.shape.as_list())
+	if mask is not None:
+	    print(mask.shape.as_list())
+	    A -= tf.cast(mask[..., tf.newaxis],tf.float32) * 1e9
+	print(A.shape.as_list())
         A = tf.nn.softmax(tf.transpose(A, [0, 2, 1]))  # b x 1 x M
+	print(A.shape.as_list())
         attented = tf.matmul(A, inputs)  # b x N(1) x d
         if self.num_seeds == 1:
             attented = tf.squeeze(attented, axis=1)

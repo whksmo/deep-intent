@@ -90,11 +90,9 @@ class TCN(Layer):
                  dropout_rate=0.0,
                  return_sequences=False,
                  activation='linear',
-                 name='tcn',
                  kernel_initializer='he_normal',
                  use_batch_norm=False,
                  **kwargs):
-        self.name = name
         self.return_sequences = return_sequences
         self.dropout_rate = dropout_rate
         self.use_skip_connections = use_skip_connections
@@ -120,7 +118,7 @@ class TCN(Layer):
         super(TCN, self).__init__(**kwargs)
 
     def build(self, input_shape, **kwargs):
-        self.conv = Conv1D(self.nb_filters, 1, padding=self.padding, kernel_initializer=self.kernel_initializer)
+        self.conv = tf.layers.Conv1D(self.nb_filters, 1, padding=self.padding, kernel_initializer=self.kernel_initializer)
 
         super(TCN, self).build(input_shape)
 
